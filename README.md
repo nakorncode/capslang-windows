@@ -16,6 +16,8 @@ shortcuts such as `Win+Space+1` or `Win+Space+D`.
   the active app exposes caret geometry through Windows UI Automation.
 - Avoid mouse-pointer based typing feedback.
 - Run quietly as a tray app.
+- Manage CapsLang, indicator visibility, indicator placement, and startup from
+  the tray right-click menu.
 - Install from a release ZIP without the .NET SDK.
 
 ## Download
@@ -36,6 +38,23 @@ Release builds are self-contained. No separate .NET runtime install is required.
 | `Ctrl+CapsLock` | Force CapsLock off without switching language |
 | Tray menu `Turn CapsLock Off` | Force CapsLock off with the mouse |
 
+## Tray Menu
+
+Right-click the CapsLang tray icon to change runtime settings:
+
+- `CapsLang Enabled`: turn the CapsLock remap on or off. When off, CapsLock
+  behaves normally.
+- `Show Language Indicator`: show or hide the popup indicator after language
+  switching.
+- `Indicator Position`:
+  - `Follow Text Caret`: show near the text insertion caret when Windows exposes
+    caret geometry.
+  - `Screen Corner`: keep the indicator in the bottom-right screen corner.
+- `Start with Windows`: create or remove the Windows Startup shortcut.
+- `Turn CapsLock Off`: force real CapsLock off.
+
+Settings are saved under `%LOCALAPPDATA%\CapsLang\settings.json`.
+
 ## Install From Release ZIP
 
 1. Open the repository's **Releases** tab.
@@ -49,6 +68,7 @@ Release builds are self-contained. No separate .NET runtime install is required.
 ```
 
 The installer creates a Windows Startup shortcut and starts `CapsLang.exe`.
+You can later turn Startup on or off from the tray right-click menu.
 
 Disable any PowerToys CapsLock remap while CapsLang is running, otherwise both
 tools may react to the same key.

@@ -32,6 +32,10 @@ Primary goals:
 - `CapsLock`: switch to next input language and keep CapsLock off.
 - `Shift+CapsLock`: intentionally toggle real CapsLock.
 - `Ctrl+CapsLock`: force CapsLock off without switching language.
+- Tray menu must expose runtime toggles for CapsLang enabled/disabled, language
+  indicator visibility, indicator placement, and Start with Windows.
+- When CapsLang is disabled, let CapsLock pass through normally.
+- Persist user settings under `%LOCALAPPDATA%\CapsLang`.
 - Tray menu actions may use mouse-position feedback because they are pointer
   initiated.
 - Popups must not take focus from the active app.

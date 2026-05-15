@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using System.Windows.Automation;
 using System.Windows.Automation.Text;
 using System.Windows.Forms;
@@ -26,19 +28,21 @@ internal static class Program
     private static LowLevelKeyboardProc? hookProc;
     private static LanguagePopup? languagePopup;
     private static System.Windows.Forms.Timer? languagePopupTimer;
+    private static AppSettings appSettings = new();
     private static readonly Lazy<UiaCom.IUIAutomation> nativeAutomation = new(() => new UiaCom.CUIAutomation8());
 
     [STAThread]
     private static void Main()
     {
         ApplicationConfiguration.Initialize();
+        appSettings = SettingsStore.Load();
 
         languagePopup = new LanguagePopup();
         languagePopupTimer = new System.Windows.Forms.Timer { Interval = 90 };
         languagePopupTimer.Tick += (_, _) =>
         {
             languagePopupTimer.Stop();
-            languagePopup.ShowLanguage(GetForegroundInputLanguageCode(), GetInputPopupAnchor());
+            ShowIndicator(GetForegroundInputLanguageCode());
         };
 
         hookProc = HookCallback;
@@ -62,10 +66,80 @@ internal static class Program
     private static NotifyIcon CreateTrayIcon()
     {
         var menu = new ContextMenuStrip();
+        var enabledItem = new ToolStripMenuItem("CapsLang Enabled") { CheckOnClick = true, Checked = appSettings.IsCapsLangEnabled };
+        var indicatorItem = new ToolStripMenuItem("Show Language Indicator") { CheckOnClick = true, Checked = appSettings.ShowLanguageIndicator };
+        var startupItem = new ToolStripMenuItem("Start with Windows") { CheckOnClick = true, Checked = StartupShortcut.IsEnabled() };
+        var followCaretItem = new ToolStripMenuItem("Follow Text Caret");
+        var screenCornerItem = new ToolStripMenuItem("Screen Corner");
+
+        void SaveSettings()
+        {
+            SettingsStore.Save(appSettings);
+        }
+
+        void RefreshPositionMenu()
+        {
+            followCaretItem.Checked = appSettings.IndicatorPlacement == IndicatorPlacement.FollowCaret;
+            screenCornerItem.Checked = appSettings.IndicatorPlacement == IndicatorPlacement.ScreenCorner;
+        }
+
+        enabledItem.CheckedChanged += (_, _) =>
+        {
+            appSettings.IsCapsLangEnabled = enabledItem.Checked;
+            SaveSettings();
+            ShowIndicator(appSettings.IsCapsLangEnabled ? "ON" : "OFF");
+        };
+
+        indicatorItem.CheckedChanged += (_, _) =>
+        {
+            appSettings.ShowLanguageIndicator = indicatorItem.Checked;
+            SaveSettings();
+            ShowIndicator(appSettings.ShowLanguageIndicator ? "UI ON" : "UI OFF", force: true);
+        };
+
+        startupItem.CheckedChanged += (_, _) =>
+        {
+            if (startupItem.Checked)
+            {
+                StartupShortcut.Enable();
+            }
+            else
+            {
+                StartupShortcut.Disable();
+            }
+        };
+
+        followCaretItem.Click += (_, _) =>
+        {
+            appSettings.IndicatorPlacement = IndicatorPlacement.FollowCaret;
+            RefreshPositionMenu();
+            SaveSettings();
+            ShowIndicator("CARET");
+        };
+
+        screenCornerItem.Click += (_, _) =>
+        {
+            appSettings.IndicatorPlacement = IndicatorPlacement.ScreenCorner;
+            RefreshPositionMenu();
+            SaveSettings();
+            ShowIndicator("CORNER");
+        };
+
+        RefreshPositionMenu();
+
+        var positionMenu = new ToolStripMenuItem("Indicator Position");
+        positionMenu.DropDownItems.Add(followCaretItem);
+        positionMenu.DropDownItems.Add(screenCornerItem);
+
+        menu.Items.Add(enabledItem);
+        menu.Items.Add(indicatorItem);
+        menu.Items.Add(positionMenu);
+        menu.Items.Add(startupItem);
+        menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Turn CapsLock Off", null, (_, _) =>
         {
             ForceCapsLockOff();
-            languagePopup?.ShowLanguage("CAPS OFF", GetPointerPopupAnchor());
+            ShowIndicator("CAPS OFF", force: true, pointerInitiated: true);
         });
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => Application.Exit());
@@ -92,6 +166,11 @@ internal static class Program
 
     private static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
     {
+        if (!appSettings.IsCapsLangEnabled)
+        {
+            return CallNextHookEx(hookId, nCode, wParam, lParam);
+        }
+
         if (nCode >= 0)
         {
             var message = wParam.ToInt32();
@@ -104,12 +183,12 @@ internal static class Program
                     if (IsKeyDown(VK_CONTROL))
                     {
                         ForceCapsLockOff();
-                        languagePopup?.ShowLanguage("CAPS OFF", GetInputPopupAnchor());
+                        ShowIndicator("CAPS OFF", force: true);
                     }
                     else if (IsKeyDown(VK_SHIFT))
                     {
                         ToggleCapsLock();
-                        languagePopup?.ShowLanguage(IsCapsLockOn() ? "CAPS ON" : "CAPS OFF", GetInputPopupAnchor());
+                        ShowIndicator(IsCapsLockOn() ? "CAPS ON" : "CAPS OFF", force: true);
                     }
                     else
                     {
@@ -183,6 +262,34 @@ internal static class Program
         {
             return "??";
         }
+    }
+
+    private static void ShowIndicator(string text, bool force = false, bool pointerInitiated = false)
+    {
+        if (languagePopup is null || (!force && !appSettings.ShowLanguageIndicator))
+        {
+            return;
+        }
+
+        var anchor = pointerInitiated
+            ? GetPointerPopupAnchor()
+            : GetIndicatorAnchor();
+        languagePopup.ShowLanguage(text, anchor);
+    }
+
+    private static Point GetIndicatorAnchor()
+    {
+        return appSettings.IndicatorPlacement switch
+        {
+            IndicatorPlacement.ScreenCorner => GetScreenCornerPopupAnchor(),
+            _ => GetInputPopupAnchor()
+        };
+    }
+
+    private static Point GetScreenCornerPopupAnchor()
+    {
+        var screen = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 800, 600);
+        return new Point(screen.Right - 72, screen.Bottom - 54);
     }
 
     private static Point GetInputPopupAnchor()
@@ -449,6 +556,100 @@ internal static class Program
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool PostMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+}
+
+internal enum IndicatorPlacement
+{
+    FollowCaret,
+    ScreenCorner
+}
+
+internal sealed class AppSettings
+{
+    public bool IsCapsLangEnabled { get; set; } = true;
+    public bool ShowLanguageIndicator { get; set; } = true;
+    public IndicatorPlacement IndicatorPlacement { get; set; } = IndicatorPlacement.FollowCaret;
+}
+
+internal static class SettingsStore
+{
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true
+    };
+
+    private static string SettingsDirectory =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "CapsLang");
+
+    private static string SettingsPath => Path.Combine(SettingsDirectory, "settings.json");
+
+    public static AppSettings Load()
+    {
+        try
+        {
+            if (!File.Exists(SettingsPath))
+            {
+                return new AppSettings();
+            }
+
+            return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath), JsonOptions) ?? new AppSettings();
+        }
+        catch (JsonException)
+        {
+            return new AppSettings();
+        }
+        catch (IOException)
+        {
+            return new AppSettings();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return new AppSettings();
+        }
+    }
+
+    public static void Save(AppSettings settings)
+    {
+        Directory.CreateDirectory(SettingsDirectory);
+        File.WriteAllText(SettingsPath, JsonSerializer.Serialize(settings, JsonOptions));
+    }
+}
+
+internal static class StartupShortcut
+{
+    private static string ShortcutPath =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Startup), "CapsLang.lnk");
+
+    public static bool IsEnabled()
+    {
+        return File.Exists(ShortcutPath);
+    }
+
+    public static void Enable()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(ShortcutPath)!);
+
+        var shellType = Type.GetTypeFromProgID("WScript.Shell");
+        if (shellType is null)
+        {
+            throw new InvalidOperationException("WScript.Shell is not available.");
+        }
+
+        dynamic shell = Activator.CreateInstance(shellType)!;
+        dynamic shortcut = shell.CreateShortcut(ShortcutPath);
+        shortcut.TargetPath = Application.ExecutablePath;
+        shortcut.WorkingDirectory = AppContext.BaseDirectory;
+        shortcut.Description = "Use CapsLock as input language switcher";
+        shortcut.Save();
+    }
+
+    public static void Disable()
+    {
+        if (File.Exists(ShortcutPath))
+        {
+            File.Delete(ShortcutPath);
+        }
+    }
 }
 
 internal sealed class LanguagePopup : Form
