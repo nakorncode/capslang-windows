@@ -6,5 +6,6 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>CapsLang</AssemblyName>
+    <ApplicationIcon>assets\capslang.ico</ApplicationIcon>
   </PropertyGroup>
 </Project>

@@ -34,7 +34,7 @@ internal static class Program
         languagePopupTimer.Tick += (_, _) =>
         {
             languagePopupTimer.Stop();
-            languagePopup.ShowLanguage(GetForegroundInputLanguageCode(), GetPopupAnchor());
+            languagePopup.ShowLanguage(GetForegroundInputLanguageCode(), GetInputPopupAnchor());
         };
 
         hookProc = HookCallback;
@@ -61,14 +61,14 @@ internal static class Program
         menu.Items.Add("Turn CapsLock Off", null, (_, _) =>
         {
             ForceCapsLockOff();
-            languagePopup?.ShowLanguage("CAPS OFF", GetPopupAnchor());
+            languagePopup?.ShowLanguage("CAPS OFF", GetPointerPopupAnchor());
         });
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) => Application.Exit());
 
         return new NotifyIcon
         {
-            Icon = SystemIcons.Application,
+            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application,
             Text = "CapsLang: CapsLock switches language",
             ContextMenuStrip = menu,
             Visible = true
@@ -100,12 +100,12 @@ internal static class Program
                     if (IsKeyDown(VK_CONTROL))
                     {
                         ForceCapsLockOff();
-                        languagePopup?.ShowLanguage("CAPS OFF", GetPopupAnchor());
+                        languagePopup?.ShowLanguage("CAPS OFF", GetInputPopupAnchor());
                     }
                     else if (IsKeyDown(VK_SHIFT))
                     {
                         ToggleCapsLock();
-                        languagePopup?.ShowLanguage(IsCapsLockOn() ? "CAPS ON" : "CAPS OFF", GetPopupAnchor());
+                        languagePopup?.ShowLanguage(IsCapsLockOn() ? "CAPS ON" : "CAPS OFF", GetInputPopupAnchor());
                     }
                     else
                     {
@@ -181,7 +181,7 @@ internal static class Program
         }
     }
 
-    private static Point GetPopupAnchor()
+    private static Point GetInputPopupAnchor()
     {
         var foregroundWindow = GetForegroundWindow();
         if (foregroundWindow != IntPtr.Zero)
@@ -198,8 +198,23 @@ internal static class Program
                     return caretPoint;
                 }
             }
+
+            var fallbackWindow = guiThreadInfo.hwndFocus != IntPtr.Zero
+                ? guiThreadInfo.hwndFocus
+                : foregroundWindow;
+
+            if (GetWindowRect(fallbackWindow, out var focusedWindowRect))
+            {
+                return new Point(focusedWindowRect.Left + 16, focusedWindowRect.Bottom - 16);
+            }
         }
 
+        var screen = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 800, 600);
+        return new Point(screen.Left + 24, screen.Top + 24);
+    }
+
+    private static Point GetPointerPopupAnchor()
+    {
         return GetCursorPos(out var cursorPoint)
             ? cursorPoint
             : new Point(Screen.PrimaryScreen?.WorkingArea.Left + 24 ?? 24, Screen.PrimaryScreen?.WorkingArea.Top + 24 ?? 24);
@@ -271,6 +286,10 @@ internal static class Program
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool ClientToScreen(IntPtr hWnd, ref Point lpPoint);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
