@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Windows.Automation;
 using System.Windows.Automation.Text;
 using System.Windows.Forms;
@@ -256,12 +257,35 @@ internal static class Program
 
         try
         {
-            return CultureInfo.GetCultureInfo((int)languageId).TwoLetterISOLanguageName.ToUpperInvariant();
+            return FormatLanguageLabel(CultureInfo.GetCultureInfo((int)languageId), languageId);
         }
         catch (CultureNotFoundException)
         {
-            return "??";
+            return $"0x{languageId:x4}".ToUpperInvariant();
         }
+    }
+
+    private static string FormatLanguageLabel(CultureInfo cultureInfo, long languageId)
+    {
+        if (!string.IsNullOrWhiteSpace(cultureInfo.Name))
+        {
+            return cultureInfo.Name.ToUpperInvariant();
+        }
+
+        if (!string.IsNullOrWhiteSpace(cultureInfo.TwoLetterISOLanguageName) &&
+            cultureInfo.TwoLetterISOLanguageName.Length == 2 &&
+            !string.Equals(cultureInfo.TwoLetterISOLanguageName, "iv", StringComparison.OrdinalIgnoreCase))
+        {
+            return cultureInfo.TwoLetterISOLanguageName.ToUpperInvariant();
+        }
+
+        var nativeName = Regex.Replace(cultureInfo.NativeName, @"\s*\(.+?\)\s*", " ").Trim();
+        if (!string.IsNullOrWhiteSpace(nativeName))
+        {
+            return nativeName;
+        }
+
+        return $"0x{languageId:x4}".ToUpperInvariant();
     }
 
     private static void ShowIndicator(string text, bool force = false, bool pointerInitiated = false)

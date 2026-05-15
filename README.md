@@ -12,8 +12,8 @@ shortcuts such as `Win+Space+1` or `Win+Space+D`.
 
 - Use `CapsLock` to switch to the next Windows input language.
 - Keep real CapsLock off during normal typing.
-- Show a short `TH` / `EN` style indicator near the text insertion caret when
-  the active app exposes caret geometry through Windows UI Automation.
+- Show the active Windows input language code near the text insertion caret
+  when the active app exposes caret geometry through Windows UI Automation.
 - Avoid mouse-pointer based typing feedback.
 - Run quietly as a tray app.
 - Manage CapsLang, indicator visibility, indicator placement, and startup from
@@ -54,6 +54,9 @@ Right-click the CapsLang tray icon to change runtime settings:
 - `Turn CapsLock Off`: force real CapsLock off.
 
 Settings are saved under `%LOCALAPPDATA%\CapsLang\settings.json`.
+
+The indicator is not limited to Thai and English. It uses the active Windows
+input language culture, such as `EN-US`, `TH-TH`, `JA-JP`, `KO-KR`, or `ZH-CN`.
 
 ## Install From Release ZIP
 

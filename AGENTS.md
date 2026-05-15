@@ -12,6 +12,8 @@ Primary goals:
 - Keep `CapsLock` from accidentally enabling uppercase lock.
 - Avoid Windows shortcut leakage such as `Win+Space+1` or `Win+Space+D`.
 - Show the active language near the text insertion caret after switching.
+- Language labels must come from the active Windows input language culture and
+  must not be hardcoded to Thai/English only.
 - Stay lightweight, local-first, and easy to install from a release ZIP.
 
 ## Technical Boundaries
