@@ -1,7 +1,10 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
+using System.Windows.Automation;
+using System.Windows.Automation.Text;
 using System.Windows.Forms;
+using UiaCom = Interop.UIAutomationClient;
 
 namespace CapsLang;
 
@@ -23,6 +26,7 @@ internal static class Program
     private static LowLevelKeyboardProc? hookProc;
     private static LanguagePopup? languagePopup;
     private static System.Windows.Forms.Timer? languagePopupTimer;
+    private static readonly Lazy<UiaCom.IUIAutomation> nativeAutomation = new(() => new UiaCom.CUIAutomation8());
 
     [STAThread]
     private static void Main()
@@ -183,6 +187,16 @@ internal static class Program
 
     private static Point GetInputPopupAnchor()
     {
+        if (TryGetNativeAutomationCaretAnchor(out var nativeAutomationCaretPoint))
+        {
+            return nativeAutomationCaretPoint;
+        }
+
+        if (TryGetAutomationCaretAnchor(out var automationCaretPoint))
+        {
+            return automationCaretPoint;
+        }
+
         var foregroundWindow = GetForegroundWindow();
         if (foregroundWindow != IntPtr.Zero)
         {
@@ -211,6 +225,143 @@ internal static class Program
 
         var screen = Screen.PrimaryScreen?.WorkingArea ?? new Rectangle(0, 0, 800, 600);
         return new Point(screen.Left + 24, screen.Top + 24);
+    }
+
+    private static bool TryGetNativeAutomationCaretAnchor(out Point anchor)
+    {
+        anchor = Point.Empty;
+
+        try
+        {
+            var focusedElement = nativeAutomation.Value.GetFocusedElement();
+            var textPatternObject = focusedElement.GetCurrentPattern(UiaCom.UIA_PatternIds.UIA_TextPattern2Id);
+
+            if (textPatternObject is not UiaCom.IUIAutomationTextPattern2 textPattern)
+            {
+                return false;
+            }
+
+            var caretRange = textPattern.GetCaretRange(out var isActive);
+            if (isActive == 0)
+            {
+                return false;
+            }
+
+            return TryGetNativeTextRangeAnchor(caretRange, out anchor);
+        }
+        catch (COMException)
+        {
+        }
+        catch (InvalidCastException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+
+        return false;
+    }
+
+    private static bool TryGetNativeTextRangeAnchor(UiaCom.IUIAutomationTextRange? range, out Point anchor)
+    {
+        anchor = Point.Empty;
+        if (range is null)
+        {
+            return false;
+        }
+
+        var rectangles = range.GetBoundingRectangles();
+        for (var index = 0; index + 3 < rectangles.Length; index += 4)
+        {
+            var x = rectangles[index];
+            var y = rectangles[index + 1];
+            var width = rectangles[index + 2];
+            var height = rectangles[index + 3];
+
+            if (double.IsNaN(x) || double.IsNaN(y) || double.IsInfinity(x) || double.IsInfinity(y))
+            {
+                continue;
+            }
+
+            if (width < 0 || height <= 0)
+            {
+                continue;
+            }
+
+            anchor = new Point((int)Math.Round(x + Math.Min(width, 2)), (int)Math.Round(y + height));
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryGetAutomationCaretAnchor(out Point anchor)
+    {
+        anchor = Point.Empty;
+
+        try
+        {
+            var focusedElement = AutomationElement.FocusedElement;
+            if (focusedElement is null)
+            {
+                return false;
+            }
+
+            if (focusedElement.TryGetCurrentPattern(TextPattern.Pattern, out var textPatternObject) &&
+                textPatternObject is TextPattern textPattern)
+            {
+                foreach (var selectionRange in textPattern.GetSelection())
+                {
+                    if (TryGetTextRangeAnchor(selectionRange, out anchor))
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        catch (ElementNotAvailableException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        catch (COMException)
+        {
+        }
+
+        return false;
+    }
+
+    private static bool TryGetTextRangeAnchor(TextPatternRange? range, out Point anchor)
+    {
+        anchor = Point.Empty;
+        if (range is null)
+        {
+            return false;
+        }
+
+        foreach (var rectangle in range.GetBoundingRectangles())
+        {
+            var x = rectangle.X;
+            var y = rectangle.Y;
+            var width = rectangle.Width;
+            var height = rectangle.Height;
+
+            if (double.IsNaN(x) || double.IsNaN(y) || double.IsInfinity(x) || double.IsInfinity(y))
+            {
+                continue;
+            }
+
+            if (width < 0 || height <= 0)
+            {
+                continue;
+            }
+
+            anchor = new Point((int)Math.Round(x + Math.Min(width, 2)), (int)Math.Round(y + height));
+            return true;
+        }
+
+        return false;
     }
 
     private static Point GetPointerPopupAnchor()

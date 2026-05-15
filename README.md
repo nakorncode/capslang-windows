@@ -12,7 +12,8 @@ shortcuts such as `Win+Space+1` or `Win+Space+D`.
 
 - Use `CapsLock` to switch to the next Windows input language.
 - Keep real CapsLock off during normal typing.
-- Show a short `TH` / `EN` style indicator near the text insertion caret.
+- Show a short `TH` / `EN` style indicator near the text insertion caret when
+  the active app exposes caret geometry through Windows UI Automation.
 - Avoid mouse-pointer based typing feedback.
 - Run quietly as a tray app.
 - Install from a release ZIP without the .NET SDK.
@@ -98,7 +99,8 @@ uploads it to the GitHub Releases tab.
 
 - If CapsLang should work inside elevated administrator apps, run CapsLang as
   administrator too. Normal non-admin apps work without elevation.
-- Some apps do not expose their text caret through the standard Windows API. In
+- Caret detection uses Windows UI Automation `TextPattern2` first, then older
+  text/Win32 caret APIs. Some apps still do not expose exact caret geometry; in
   those cases CapsLang anchors the popup to the focused window instead of the
   mouse pointer.
 - CapsLang is Windows-only.

@@ -21,10 +21,11 @@ Primary goals:
   risk or complexity.
 - Preserve the low-level keyboard hook behavior in `Program.cs`.
 - Do not send `Win+Space` as the switching implementation.
-- Prefer Win32 APIs over simulated key chords for language switching and state
-  management.
+- Prefer Win32/UI Automation APIs over simulated key chords for language
+  switching, caret detection, and state management.
 - Keyboard-triggered indicators should anchor to the text insertion caret when
-  available. Do not fall back to the mouse pointer for normal typing feedback.
+  available. Use native UIA3 `TextPattern2` before older UIA or Win32 caret
+  APIs. Do not fall back to the mouse pointer for normal typing feedback.
 
 ## UX Rules
 
