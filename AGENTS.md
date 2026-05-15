@@ -23,8 +23,6 @@ Primary goals:
   risk or complexity.
 - Preserve the low-level keyboard hook behavior in `Program.cs`.
 - Do not send `Win+Space` as the switching implementation.
-- Windows-key shortcuts such as `Win+L` and `Win+Shift+S` must always pass
-  through untouched.
 - Prefer Win32/UI Automation APIs over simulated key chords for language
   switching, caret detection, and state management.
 - Keyboard-triggered indicators should anchor to the text insertion caret when

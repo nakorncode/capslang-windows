@@ -21,11 +21,8 @@ internal static class Program
     private const int VK_CAPITAL = 0x14;
     private const int VK_SHIFT = 0x10;
     private const int VK_CONTROL = 0x11;
-    private const int VK_LWIN = 0x5B;
-    private const int VK_RWIN = 0x5C;
     private const int WM_INPUTLANGCHANGEREQUEST = 0x0050;
     private const int INPUTLANGCHANGE_FORWARD = 0x0002;
-    private const int LLKHF_INJECTED = 0x10;
     private static readonly IntPtr HKL_NEXT = new(1);
 
     private static IntPtr hookId = IntPtr.Zero;
@@ -170,51 +167,43 @@ internal static class Program
 
     private static IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
     {
-        if (nCode < 0 || IsWindowsKeyDown())
-        {
-            return CallNextHookEx(hookId, nCode, wParam, lParam);
-        }
-
         if (!appSettings.IsCapsLangEnabled)
         {
             return CallNextHookEx(hookId, nCode, wParam, lParam);
         }
 
-        var message = wParam.ToInt32();
-        var keyboardEvent = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
-        var vkCode = keyboardEvent.vkCode;
-
-        if (vkCode == VK_CAPITAL)
+        if (nCode >= 0)
         {
-            if ((keyboardEvent.flags & LLKHF_INJECTED) != 0)
-            {
-                return CallNextHookEx(hookId, nCode, wParam, lParam);
-            }
+            var message = wParam.ToInt32();
+            var vkCode = Marshal.ReadInt32(lParam);
 
-            if (message is WM_KEYDOWN or WM_SYSKEYDOWN)
+            if (vkCode == VK_CAPITAL)
             {
-                if (IsKeyDown(VK_CONTROL))
+                if (message is WM_KEYDOWN or WM_SYSKEYDOWN)
                 {
-                    ForceCapsLockOff();
-                    ShowIndicator("CAPS OFF", force: true);
+                    if (IsKeyDown(VK_CONTROL))
+                    {
+                        ForceCapsLockOff();
+                        ShowIndicator("CAPS OFF", force: true);
+                    }
+                    else if (IsKeyDown(VK_SHIFT))
+                    {
+                        ToggleCapsLock();
+                        ShowIndicator(IsCapsLockOn() ? "CAPS ON" : "CAPS OFF", force: true);
+                    }
+                    else
+                    {
+                        ForceCapsLockOff();
+                        SwitchToNextInputLanguage();
+                        languagePopupTimer?.Stop();
+                        languagePopupTimer?.Start();
+                    }
                 }
-                else if (IsKeyDown(VK_SHIFT))
-                {
-                    SetCapsLockState(!IsCapsLockOn());
-                    ShowIndicator(IsCapsLockOn() ? "CAPS ON" : "CAPS OFF", force: true);
-                }
-                else
-                {
-                    ForceCapsLockOff();
-                    SwitchToNextInputLanguage();
-                    languagePopupTimer?.Stop();
-                    languagePopupTimer?.Start();
-                }
-            }
 
-            if (message is WM_KEYDOWN or WM_KEYUP or WM_SYSKEYDOWN or WM_SYSKEYUP)
-            {
-                return new IntPtr(1);
+                if (message is WM_KEYDOWN or WM_KEYUP or WM_SYSKEYDOWN or WM_SYSKEYUP)
+                {
+                    return new IntPtr(1);
+                }
             }
         }
 
@@ -232,7 +221,10 @@ internal static class Program
 
     private static void ForceCapsLockOff()
     {
-        SetCapsLockState(false);
+        if (IsCapsLockOn())
+        {
+            ToggleCapsLock();
+        }
     }
 
     private static bool IsCapsLockOn()
@@ -245,20 +237,7 @@ internal static class Program
         return (GetAsyncKeyState(virtualKey) & 0x8000) != 0;
     }
 
-    private static bool IsWindowsKeyDown()
-    {
-        return IsKeyDown(VK_LWIN) || IsKeyDown(VK_RWIN);
-    }
-
-    private static void SetCapsLockState(bool enabled)
-    {
-        if (IsCapsLockOn() != enabled)
-        {
-            SetKeyboardStateCapsLock(enabled);
-        }
-    }
-
-    private static void SetKeyboardStateCapsLock(bool enabled)
+    private static void ToggleCapsLock()
     {
         keybd_event(VK_CAPITAL, 0x45, KEYEVENTF_EXTENDEDKEY, UIntPtr.Zero);
         keybd_event(VK_CAPITAL, 0x45, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, UIntPtr.Zero);
@@ -529,16 +508,6 @@ internal static class Program
     private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct KBDLLHOOKSTRUCT
-    {
-        public int vkCode;
-        public int scanCode;
-        public int flags;
-        public int time;
-        public UIntPtr dwExtraInfo;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
     private struct GUITHREADINFO
     {
         public int cbSize;
@@ -581,10 +550,10 @@ internal static class Program
     private static extern short GetAsyncKeyState(int vKey);
 
     [DllImport("user32.dll")]
-    private static extern IntPtr GetForegroundWindow();
+    private static extern void keybd_event(int bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
 
     [DllImport("user32.dll")]
-    private static extern void keybd_event(int bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+    private static extern IntPtr GetForegroundWindow();
 
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
