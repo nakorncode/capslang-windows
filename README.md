@@ -18,6 +18,15 @@ shortcuts such as `Win+Space+1` or `Win+Space+D`.
 - Run quietly as a tray app.
 - Install from a release ZIP without the .NET SDK.
 
+## Download
+
+Download the latest Windows build:
+
+- [CapsLang-Portable-win-x64.zip](https://github.com/nakorncode/capslang-windows/releases/latest/download/CapsLang-Portable-win-x64.zip) - standalone portable build; extract and run `install-startup.ps1`
+- [SHA256 checksums](https://github.com/nakorncode/capslang-windows/releases/latest/download/CapsLang-SHA256SUMS.txt)
+
+Release builds are self-contained. No separate .NET runtime install is required.
+
 ## Key Bindings
 
 | Shortcut | Action |
@@ -30,7 +39,7 @@ shortcuts such as `Win+Space+1` or `Win+Space+D`.
 ## Install From Release ZIP
 
 1. Open the repository's **Releases** tab.
-2. Download the latest `CapsLang-vX.Y.Z-win-x64.zip`.
+2. Download `CapsLang-Portable-win-x64.zip`.
 3. Extract the ZIP.
 4. Run PowerShell in the extracted folder.
 5. Run:
@@ -75,13 +84,13 @@ When `CapsLang.exe` is not present in the current folder, the installer builds a
 framework-dependent local publish output with the .NET SDK and points the
 Startup shortcut at that build.
 
-## Create A Local Release ZIP
+## Publish Release Assets Locally
 
 ```powershell
-.\scripts\package-release.ps1
+.\scripts\publish-release.ps1
 ```
 
-The ZIP is written to `artifacts/`.
+The release assets are written to `artifacts/release`.
 
 ## GitHub Release Workflow
 
@@ -93,7 +102,12 @@ git push origin v0.1.0
 ```
 
 The GitHub Actions workflow builds a self-contained `win-x64` release ZIP and
-uploads it to the GitHub Releases tab.
+checksum file, then uploads them to the GitHub Releases tab.
+
+Release assets:
+
+- `CapsLang-Portable-win-x64.zip`
+- `CapsLang-SHA256SUMS.txt`
 
 ## Notes
 

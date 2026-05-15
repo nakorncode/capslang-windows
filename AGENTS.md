@@ -49,6 +49,14 @@ Primary goals:
 ## Release
 
 - Tag releases as `vX.Y.Z`.
-- Pushing a `v*` tag runs `.github/workflows/release.yml`.
-- The workflow creates a self-contained `win-x64` ZIP and publishes it to the
-  GitHub Releases tab.
+- Use the ToastDeck-style release pattern from the PC-wide
+  `windows-release-packaging` skill.
+- Keep `scripts/publish-release.ps1` as the canonical local and CI packaging
+  entrypoint.
+- Write distributable files to `artifacts/release/`.
+- Keep latest-download asset names stable:
+  - `CapsLang-Portable-win-x64.zip`
+  - `CapsLang-SHA256SUMS.txt`
+- Pushing a `v*.*.*` tag runs `.github/workflows/release.yml`.
+- The workflow creates a self-contained `win-x64` ZIP plus checksum file and
+  publishes them to the GitHub Releases tab.

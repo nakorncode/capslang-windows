@@ -3,41 +3,50 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Existing tag to release, for example v0.1.0"
+        required: true
+        type: string
 
 permissions:
   contents: write
 
 jobs:
   release:
-    name: Build Windows release
     runs-on: windows-latest
 
     steps:
+      - name: Resolve release tag
+        id: release_tag
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+            "tag=${{ inputs.tag_name }}" >> $env:GITHUB_OUTPUT
+          } else {
+            "tag=${{ github.ref_name }}" >> $env:GITHUB_OUTPUT
+          }
+
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.release_tag.outputs.tag }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "8.0.x"
+          dotnet-version: 8.0.x
 
-      - name: Build release ZIP
+      - name: Build release assets
         shell: pwsh
-        run: .\scripts\package-release.ps1
+        run: ./scripts/publish-release.ps1 -ProductVersion "${{ steps.release_tag.outputs.tag }}"
 
-      - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
         with:
-          name: CapsLang-${{ github.ref_name }}-win-x64
-          path: artifacts/*.zip
-
-      - name: Publish GitHub release
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "${env:GITHUB_REF_NAME}" `
-            artifacts/*.zip `
-            --title "CapsLang ${env:GITHUB_REF_NAME}" `
-            --generate-notes
+          tag_name: ${{ steps.release_tag.outputs.tag }}
+          name: CapsLang ${{ steps.release_tag.outputs.tag }}
+          files: artifacts/release/CapsLang-*
+          generate_release_notes: true

@@ -8,6 +8,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>CapsLang</AssemblyName>
     <ApplicationIcon>assets\capslang.ico</ApplicationIcon>
+    <Product>CapsLang</Product>
+    <Title>CapsLang</Title>
+    <Description>CapsLock language switcher for Windows.</Description>
+    <Authors>NakornCode</Authors>
+    <Company>NakornCode</Company>
+    <Copyright>Copyright © NakornCode</Copyright>
+    <Version>0.1.0</Version>
+    <FileVersion>0.1.0.0</FileVersion>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Interop.UIAutomationClient" Version="10.19041.0" />
